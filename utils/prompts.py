@@ -1,0 +1,1 @@
+ANALYZE_FOOD_PROMPT = "What food is in the image? Base on carbon emissions, what altenative foods would you recommend? List five of them"
