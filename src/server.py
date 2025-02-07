@@ -2,8 +2,8 @@ import base64
 from io import BytesIO
 from flask import Flask, request, jsonify
 from PIL import Image
-from utils.request_utils import pil_to_base64, call_ollama
-from utils.prompts import ANALYZE_FOOD_PROMPT
+from src.utils.request_utils import pil_to_base64, call_ollama
+from src.utils.prompts import ANALYZE_FOOD_PROMPT
 
 app = Flask(__name__)
 
@@ -25,7 +25,7 @@ def analyze_image():
 
     try:
         base64_image = request.json["base64_image"]
-        response = call_ollama("llama3.2-vision", ANALYZE_FOOD_PROMPT, [base64_image])
+        response = call_ollama("llava:13b", ANALYZE_FOOD_PROMPT, [base64_image])
         return jsonify(response)
 
     except Exception as e:
