@@ -1,5 +1,7 @@
 # EcoEats Server
 
+<img src="logo.png" alt="EcoEats Logo" width="200">
+
 This is the remote server that performs the actual image analysis behind our app.
 
 ## Getting Started
@@ -38,7 +40,7 @@ python src/server.py
 ```
 
 ## Usage
-After starting the server, it will be ready to accept image analysis requests via API calls.
+After starting the server, it will be ready to accept image analysis requests.
 
 
 ## License
