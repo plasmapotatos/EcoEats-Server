@@ -5,7 +5,7 @@ from src.utils.request_utils import pil_to_base64
 
 def send_image_to_server(image_path: str):
     """Sends a base64-encoded image to the Flask server for analysis."""
-    url = "http://localhost:5001/analyze_image"  # URL of your Flask server
+    url = "http://192.168.1.40:5001/analyze_image"  # URL of your Flask server
 
     # Load the image from disk
     image = Image.open(image_path)
@@ -23,7 +23,7 @@ def send_image_to_server(image_path: str):
 
     # Handle the response
     if response.status_code == 200:
-        response_text = response.json()['message']['content']
+        response_text = response.json()
         print("Server response:", response_text)
     else:
         print(f"Failed to analyze image. HTTP {response.status_code}:", response.json())

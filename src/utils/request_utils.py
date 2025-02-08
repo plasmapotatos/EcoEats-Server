@@ -32,7 +32,7 @@ def call_ollama(model: str, prompt: str, images: list = None):
     Returns:
         dict: The response from the Ollama API, or an error message if the server is unreachable.
     """
-    url = "http://localhost:11434/api/chat"
+    url = "http://192.168.1.46:11434/api/chat"
     payload = {
         "model": model,
         "messages": [
