@@ -32,7 +32,7 @@ def call_ollama(model: str, prompt: str, images: list = None):
     Returns:
         dict: The response from the Ollama API, or an error message if the server is unreachable.
     """
-    url = "http://192.168.1.46:11434/api/chat"
+    url = "http://localhost:11436/api/chat"
     payload = {
         "model": model,
         "messages": [
@@ -51,6 +51,7 @@ def call_ollama(model: str, prompt: str, images: list = None):
 
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=100)
+        print(response.json())
         response.raise_for_status()  # Raise an error for HTTP codes 4xx/5xx
         return response.json()
     
