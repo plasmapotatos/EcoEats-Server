@@ -11,8 +11,8 @@ This project is still in development. The following features and technologies ar
 ### 🧠 AI + NLP Features
 - **Recipe Generation from Ingredients**  
   Upload an image or type a list of ingredients to receive custom eco-friendly recipe suggestions.
-- **Image-to-Recipe with Visuals**  
-  Automatically generate a recipe *and* an AI-generated image of the dish from user-uploaded ingredients.
+- **List-to-Recipe with Visuals**  
+  Ingredient list to recipe and image. 
 - **LLM Fine-Tuning / RAG**  
   We're experimenting with two approaches for generating accurate and eco-conscious responses:
   - Finetuning an open-source LLM on recipe and sustainability data.

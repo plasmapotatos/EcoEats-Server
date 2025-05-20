@@ -59,5 +59,43 @@ def analyze_image():
     except Exception as e:
         return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
 
+
+@app.route("/generate_recipe," methods=["POST"])
+def generate_recipe():
+    """Endpoint to generate a recipe and image from a natural language ingredient list.
+
+    Expected input:
+        {
+            "ingredients_text": "<natural language ingredient list>"
+        }
+    Returns:
+        {
+            "recipe": "<generated recipe text>",
+            "image_prompt": "<used image prompt>",
+            "image_base64": "<base64-encoded image string of the dish>"
+        }
+    """
+
+    if "ingredients_text" not in request.json:
+        return jsonify({"error": "No ingredient list provided"}), 400
+    try:
+        ingredients = request.json["ingredients_text"]
+
+        # Prompt the model to generate a recipe
+        full_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
+        response = call_ollama("llama3:8b", full_prompt, [ingredients])['message']['content']
+        print("LLM Recipe Response:", response)
+
+        #Generate an image from the dish description
+        image_prompt = f"A realistic photo of a dish made from: {ingredients}"
+        image_base64 = pil_to_base64(Image.new("RGB", (512, 512), "white")) # Placeholder image for now
+
+        return jsonify({
+            "recipe": response,
+            "image_prompt": image_prompt,
+            "image_base64": image_base64
+        })
+    except Exception as e:
+        return jsonify({"error:" f"Failed to generate recipe: {str(e)}"}), 500
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
