@@ -2,7 +2,23 @@
 
 <img src="logo.png" alt="EcoEats Logo" width="200">
 
-This is the remote server that performs the actual image analysis behind our app.
+This is the remote server that performs the actual image analysis behind our app. For the frontend, [this](https://github.com/plasmapotatos/EcoEats-App) is the link to the app.
+
+## 🚧 Under Development
+
+This project is still in development. The following features and technologies are being implemented:
+
+### 🧠 AI + NLP Features
+- **Recipe Generation from Ingredients**  
+  Upload an image or type a list of ingredients to receive custom eco-friendly recipe suggestions.
+- **Image-to-Recipe with Visuals**  
+  Automatically generate a recipe *and* an AI-generated image of the dish from user-uploaded ingredients.
+- **LLM Fine-Tuning / RAG**  
+  We're experimenting with two approaches for generating accurate and eco-conscious responses:
+  - Finetuning an open-source LLM on recipe and sustainability data.
+  - Implementing **Retrieval-Augmented Generation (RAG)** using a vector store and embedding models (e.g., using `FAISS` + `sentence-transformers`).
+- **Transparent Source Citation**  
+  For credibility and transparency, our system will cite the sources of recipe data or sustainability facts used during generation.
 
 ## Getting Started
 
