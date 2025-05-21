@@ -103,7 +103,5 @@ def generate_recipe():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
 
-''' REMEMBER: Once you're ready to integrate an actual image model 
-(e.g., Stable Diffusion, DALL·E, or LLaVA), just replace the placeholder 
-image block with a call to that API, passing image_prompt. '''
+''' REMEMBER: Replace the placeholder image block with a call to API for Stable Diffusion, passing image_prompt. '''
 
