@@ -5,7 +5,7 @@ from io import BytesIO
 from flask import Flask, request, jsonify
 from PIL import Image
 from src.utils.request_utils import pil_to_base64, call_ollama
-from src.utils.prompts import ANALYZE_FOOD_PROMPT
+from src.utils.prompts import ANALYZE_FOOD_PROMPT, GENERATE_RECIPE_PROMPT
 
 app = Flask(__name__)
 
@@ -81,21 +81,29 @@ def generate_recipe():
     try:
         ingredients = request.json["ingredients_text"]
 
-        # Prompt the model to generate a recipe
-        full_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
-        response = call_ollama("llama3:8b", full_prompt, [ingredients])['message']['content']
-        print("LLM Recipe Response:", response)
+        #Step 1: Generate recipe from ingredients
+        recipe_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
+        recipe_response = call_ollama("llama3:8b", recipe_prompt, [ingredients])['message']['content']
+        print("Generated Recipe:\n", recipe_response)
 
-        #Generate an image from the dish description
-        image_prompt = f"A realistic photo of a dish made from: {ingredients}"
-        image_base64 = pil_to_base64(Image.new("RGB", (512, 512), "white")) # Placeholder image for now
+        # Step 2: Use the generated recipe as the image prompt
+        image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
+
+        # NOTE: Replace the line below with your actual image generation model call when ready
+        image = Image.new("RGB", (512, 512), "lightgray")  # Placeholder image for now
+        image_base64 = pil_to_base64(image)
 
         return jsonify({
-            "recipe": response,
+            "recipe": recipe_response,
             "image_prompt": image_prompt,
             "image_base64": image_base64
         })
     except Exception as e:
-        return jsonify({"error:" f"Failed to generate recipe: {str(e)}"}), 500
+        return jsonify({"error:" f"Failed to generate recipe or image: {str(e)}"}), 500
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
+
+''' REMEMBER: Once you're ready to integrate an actual image model 
+(e.g., Stable Diffusion, DALL·E, or LLaVA), just replace the placeholder 
+image block with a call to that API, passing image_prompt. '''
+
