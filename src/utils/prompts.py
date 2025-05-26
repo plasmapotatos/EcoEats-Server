@@ -100,3 +100,19 @@ Chicken production has significant carbon emissions due to factors such as feed 
 ***** EXAMPLE OUTPUT 2 END *****
 
 """
+GENERATE_RECIPE_PROMPT = """
+You are a world-class chef. Given the following ingredient list, generate a delicious and creative recipe in the following format:
+
+Title: <Recipe Title>
+
+Ingredients:
+- List of ingredients
+
+Steps:
+1. Step one
+2. Step two
+...
+
+Make the instructions clear and realistic. Here is the list:
+{ingredients}
+"""

@@ -11,25 +11,25 @@ from ollama import chat
 def pil_to_base64(image: Image.Image) -> str:
     """Converts a PIL Image to a base64-encoded string.
 
-    Args:
+    Inputs:
         image (Image.Image): A PIL image object.
 
-    Returns:
+    Outputs:
         str: The base64 string representation of the image.
     """
     buffer = BytesIO()
-    image.save(buffer, format="PNG")  # Save image to buffer in PNG format
+    image.save(buffer, format="PNG") 
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 def call_ollama(model: str, prompt: str, images: list = None):
     """Calls the locally hosted Ollama chat model with a prompt and optional images.
 
-    Args:
+    Inputs:
         model (str): The name of the Ollama model to use.
         prompt (str): The user input prompt.
         images (list, optional): A list of base64-encoded images.
 
-    Returns:
+    Outputs:
         dict: The response from the Ollama API, or an error message if the server is unreachable.
     """
     url = "http://localhost:11436/api/chat"
@@ -45,14 +45,14 @@ def call_ollama(model: str, prompt: str, images: list = None):
     }
 
     if images:
-        payload["messages"][0]["images"] = images  # Attach images to the first message
+        payload["messages"][0]["images"] = images 
 
     headers = {"Content-Type": "application/json"}
 
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=100)
         print(response.json())
-        response.raise_for_status()  # Raise an error for HTTP codes 4xx/5xx
+        response.raise_for_status() 
         return response.json()
     
     except requests.ConnectionError:
