@@ -6,6 +6,28 @@ from flask import Flask, request, jsonify
 from PIL import Image
 from src.utils.request_utils import pil_to_base64, call_ollama
 from src.utils.prompts import ANALYZE_FOOD_PROMPT, GENERATE_RECIPE_PROMPT
+from diffusers import DiffusionPipeline
+import torch
+
+#small Stable Diffusion model
+pipe = DiffusionPipeline.from_pretrained(
+    "OFA-Sys/small-stable-diffusion-v0",
+    torch_dtype=torch.float32  # or torch.float16 if your device supports it
+)
+
+#Load Stable Diffusion model - "on top of"
+#pipe = DiffusionPipeline.from_pretrained(
+#    "black-forest-labs/FLUX.1-dev",
+#    torch_dtype=torch.float32 # FOR TIMOTHY: required for MPS (mac GPU) you might hv to change to make compatible
+#)
+#pipe.load_lora_weights("multimodalart/isometric-skeumorphic-3d-bnb")
+
+
+# FOR TIMOTHY: check that PyTorch install supports MPS (can verify using below)
+print(torch.backends.mps.is_available()) # should be true on Mac Studio
+
+device = "mps" if torch.backends.mps.is_available() else "cpu"
+pipe.to(device)
 
 app = Flask(__name__)
 
@@ -82,13 +104,49 @@ def generate_recipe():
 
         #Generate recipe from ingredients
         recipe_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
-        recipe_response = call_ollama("llama3:8b", recipe_prompt, [ingredients])['message']['content']
+        #recipe_response = call_ollama("llama3:8b", recipe_prompt, [ingredients])['message']['content']
+        recipe_response = """ Simple Tomato & Garlic Sauce
+
+Ingredients:
+
+2 tomatoes
+
+1 onion
+
+3 cloves garlic
+
+Salt (to taste)
+
+Olive oil (2 tablespoons)
+
+Instructions:
+
+Prepare the ingredients: Dice the tomatoes and onion. Mince the garlic cloves.
+
+Heat olive oil: In a medium pan, heat 2 tablespoons of olive oil over medium heat.
+
+Sauté onion and garlic: Add the diced onion and minced garlic to the pan. Cook, stirring occasionally, until the onion becomes translucent and garlic is fragrant (about 3-4 minutes).
+
+Add tomatoes: Add the diced tomatoes to the pan and stir to combine.
+
+Simmer: Lower the heat and let the sauce simmer for 10-15 minutes until the tomatoes break down and the sauce thickens slightly.
+
+Season: Add salt to taste, stirring well.
+
+Serve: This sauce works great over pasta, rice, or as a topping for grilled bread. """
+
         print("Generated Recipe:\n", recipe_response)
 
         #Use the generated recipe as the image prompt
         image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
+        print("Image prompt:", image_prompt)
 
-        image = Image.new("RGB", (512, 512), "lightgray") 
+        #image = pipe(image_prompt).images[0]
+
+        #updated image calling
+        image = pipe(image_prompt, num_inference_steps=5, guidance_scale=7.5).images[0]
+
+        image.save("generated_dish.jpg")
         image_base64 = pil_to_base64(image)
 
         return jsonify({
@@ -97,9 +155,8 @@ def generate_recipe():
             "image_base64": image_base64
         })
     except Exception as e:
-        return jsonify({"error:" f"Failed to generate recipe or image: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
 
 ''' TODO: Replace the placeholder image block with a call to API for Stable Diffusion, passing image_prompt. '''
-

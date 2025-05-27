@@ -1,3 +1,4 @@
+LICENSE.txt
 README.md
 setup.py
 ecoeatsserver.egg-info/PKG-INFO
@@ -7,6 +8,6 @@ ecoeatsserver.egg-info/top_level.txt
 src/__init__.py
 src/server.py
 src/test.py
-utils/__init__.py
-utils/prompts.py
-utils/request_utils.py
+src/utils/__init__.py
+src/utils/prompts.py
+src/utils/request_utils.py

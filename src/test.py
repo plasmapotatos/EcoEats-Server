@@ -23,6 +23,36 @@ def send_image_to_server(image_path: str):
     else:
         print(f"Failed to analyze image. HTTP {response.status_code}:", response.json())
 
+def send_ingredients_to_server(ingredients_text: str):
+    """Sends ingredients text to the Flask server to generate recipe & image."""
+    url = "http://127.0.0.1:5001/generate_recipe"
+
+    data = {
+        "ingredients_text": ingredients_text
+    }
+
+    response = requests.post(url, json=data)
+
+    if response.status_code == 200:
+        response_json = response.json()
+        print("Generated recipe:", response_json.get("recipe"))
+        print("Image prompt:", response_json.get("image_prompt"))
+
+        # Decode the base64 image and save it locally for verification
+        image_base64 = response_json.get("image_base64")
+        if image_base64:
+            image_data = base64.b64decode(image_base64)
+            with open("generated_dish_test.jpg", "wb") as f:
+                f.write(image_data)
+            print("Generated image saved as 'generated_dish_test.jpg'")
+    else:
+        print(f"Failed to generate recipe. HTTP {response.status_code}:", response.json())
+
+
 if __name__ == "__main__":
-    image_path = "apple.jpg"
-    send_image_to_server(image_path)
+    #image_path = "apple.jpg"
+    #send_image_to_server(image_path)
+
+    # Example ingredients to test generate_recipe endpoint
+    ingredients = "2 tomatoes, 1 onion, 3 cloves garlic, salt, olive oil"
+    send_ingredients_to_server(ingredients)
