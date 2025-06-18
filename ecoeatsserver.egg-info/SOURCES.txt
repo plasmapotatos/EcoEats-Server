@@ -9,5 +9,7 @@ src/__init__.py
 src/server.py
 src/test.py
 src/utils/__init__.py
+src/utils/embedding_matcher.py
 src/utils/prompts.py
 src/utils/request_utils.py
+src/utils/test_matcher.py

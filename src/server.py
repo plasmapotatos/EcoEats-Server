@@ -1,4 +1,3 @@
-import os
 import base64
 import re
 import json
@@ -6,31 +5,45 @@ from io import BytesIO
 from flask import Flask, request, jsonify
 from PIL import Image
 from src.utils.request_utils import pil_to_base64, call_ollama
-from src.utils.prompts import ANALYZE_FOOD_PROMPT, GENERATE_RECIPE_PROMPT
+from src.utils.prompts import (
+    ANALYZE_FOOD_PROMPT,
+    GENERATE_RECIPE_PROMPT,
+    SUGGEST_ALTERNATIVES_PROMPT,
+)
 from diffusers import StableDiffusionPipeline
 import torch
-
-#small Stable Diffusion model
-pipe = StableDiffusionPipeline.from_pretrained(
-    "OFA-Sys/small-stable-diffusion-v0",
-    torch_dtype=torch.float32  # or torch.float16 if your device supports it
+import csv
+from src.utils.embedding_matcher import (
+    load_model,
+    load_embeddings,
+    find_top_n_lower_emission_matches,
 )
 
-#Load Stable Diffusion model - "on top of"
-#pipe = DiffusionPipeline.from_pretrained(
+# small Stable Diffusion model
+pipe = StableDiffusionPipeline.from_pretrained(
+    "OFA-Sys/small-stable-diffusion-v0",
+    torch_dtype=torch.float32,  # or torch.float16 if your device supports it
+)
+
+
+model = load_model()
+embedding_data = load_embeddings("data/embeddings_output.json")
+# Load Stable Diffusion model - "on top of"
+# pipe = DiffusionPipeline.from_pretrained(
 #    "black-forest-labs/FLUX.1-dev",
 #    torch_dtype=torch.float32 # FOR TIMOTHY: required for MPS (mac GPU) you might hv to change to make compatible
-#)
-#pipe.load_lora_weights("multimodalart/isometric-skeumorphic-3d-bnb")
+# )
+# pipe.load_lora_weights("multimodalart/isometric-skeumorphic-3d-bnb")
 
 
 # FOR TIMOTHY: check that PyTorch install supports MPS (can verify using below)
-print(torch.backends.mps.is_available()) # should be true on Mac Studio
+print(torch.backends.mps.is_available())  # should be true on Mac Studio
 
 device = "mps" if torch.backends.mps.is_available() else "cpu"
 pipe.to(device)
 
 app = Flask(__name__)
+
 
 def parse_llm_output(llm_string):
     """Function to parse LLM output
@@ -40,22 +53,140 @@ def parse_llm_output(llm_string):
     Outputs:
         dict: JSON output of the LLM, parsed in a structured manner
     """
-    match = re.search(r'```json\s*(\{.*?\})\s*```', llm_string, re.DOTALL)
+    match = re.search(r"```json\s*(\{.*?\})\s*```", llm_string, re.DOTALL)
     print(match)
-    
+
     if not match:
         raise ValueError("No valid JSON found in the LLM output")
-    
-    json_content = match.group(1) 
-    return json.loads(json_content) 
+
+    json_content = match.group(1)
+    return json.loads(json_content)
+
+
+@app.route("/detect_foods", methods=["POST"])
+def detect_foods():
+    """
+    Endpoint to analyze a base64-encoded image and detect foods.
+
+    Inputs (JSON):
+        {
+            "base64_image": "<base64-encoded image string>"
+        }
+
+    Returns:
+        {
+            "foods": ["apple", "bread", "cheese", ...]
+        }
+    """
+
+    if "base64_image" not in request.json:
+        return jsonify({"error": "No image file provided"}), 400
+
+    try:
+        # Decode the base64 image
+        base64_image = request.json["base64_image"]
+        image_data = base64.b64decode(base64_image)
+        image = Image.open(BytesIO(image_data))
+
+        # (Optional) Save for debugging
+        image.save("debug_image.jpg")
+
+        # Call the vision-language model (e.g., LLaVA via Ollama)
+        while True:
+            try:
+                response = call_ollama("llava:13b", ANALYZE_FOOD_PROMPT, [base64_image])
+                raw_output = response["message"]["content"]
+                print("LLM Output:", raw_output)
+
+                # Parse model output (expects a JSON-like list)
+                parsed = parse_llm_output(raw_output)
+                return jsonify({"foods": parsed}), 200
+            except Exception as e:
+                print(f"Failed to parse LLM output: {e}")
+                print("Retrying...")
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
+
+
+def llm_generate_alternatives(original_food: str, candidates: list[dict]) -> list[dict]:
+    candidates_str = "\n".join(
+        f"- {c['Name']} (CO2: {c['CO2']:.2f} kg CO2-eq/kg, Similarity: {c['Cosine Similarity']:.4f})"
+        for c in candidates
+    )
+    prompt = (
+        f"Original food: '{original_food}'\n"
+        f"Candidate alternatives:\n{candidates_str}\n\n" + SUGGEST_ALTERNATIVES_PROMPT
+    )
+    response = call_ollama("llava:13b", prompt, [])
+    content = response["message"]["content"]
+
+    # Clean code fences if present
+    if "```" in content:
+        content = content.split("```")[1].strip()
+
+    try:
+        return json.loads(content)
+    except Exception as e:
+        print(f"Failed to parse LLM output: {e}")
+        return []
+
+
+@app.route("/suggest_alternatives", methods=["POST"])
+def suggest_alternatives():
+    data = request.get_json()
+    if not data or "foods" not in data:
+        return jsonify({"error": "Missing 'foods' field"}), 400
+
+    foods = data["foods"]
+    llm_guided = data.get("llm_guided", False)
+
+    with open("data/carbonData.csv", newline="") as f:
+        reader = csv.DictReader(f)
+        carbon_data = list(reader)
+
+    response = []
+
+    for food in foods:
+        candidates = find_top_n_lower_emission_matches(
+            food, embedding_data, carbon_data, model, n=5, top_k=10
+        )
+
+        if llm_guided:
+            llm_results = llm_generate_alternatives(food, candidates)
+            formatted = []
+            for alt in llm_results:
+                formatted.append(
+                    {
+                        "Name": alt.get("Name"),
+                        "Justification": alt.get("Justification"),
+                        "CO2-eq/kg": alt.get("CO2"),
+                    }
+                )
+            response.append({"original": food, "matches": formatted})
+
+        else:
+            top5 = candidates[:5]
+            formatted = [
+                {
+                    "Name": c["Name"],
+                    "Similarity": round(c["Cosine Similarity"], 4),
+                    "CO2-eq/kg": round(c["CO2"], 4),
+                }
+                for c in top5
+            ]
+            response.append({"original": food, "matches": formatted})
+
+    return jsonify({"alternatives": response}), 200
+
 
 @app.route("/analyze_image", methods=["POST"])
 def analyze_image():
     """Endpoint to analyze a base64-encoded image.
-    
+
     Inputs:
         base64_image (str): "<base64-encoded image string>",
-    
+
     The 'image' field should be the base64-encoded string of the image.
     """
 
@@ -69,11 +200,13 @@ def analyze_image():
 
         image = Image.open(BytesIO(image_data))
 
-        #just to test
+        # just to test
         image.save("image.jpg")
         while True:
             try:
-                response = call_ollama("llava:13b", ANALYZE_FOOD_PROMPT, [base64_image])['message']['content']
+                response = call_ollama(
+                    "llava:13b", ANALYZE_FOOD_PROMPT, [base64_image]
+                )["message"]["content"]
                 print(response, type(response))
                 parsed_response = parse_llm_output(response)
                 break
@@ -129,20 +262,22 @@ def generate_recipe():
             # Only text provided — no image input
             prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients_text)
             inputs = []
-        
+
         # Call Ollama with prompt + optional image(s)
-        #recipe_response = call_ollama("llama3.2-vision:latest", prompt, inputs)['message']['content']
+        # recipe_response = call_ollama("llama3.2-vision:latest", prompt, inputs)['message']['content']
         response = call_ollama(model_name, prompt, inputs)
         print("Ollama raw response:", response)
         if "error" in response:
             return jsonify({"error": f"Ollama error: {response['error']}"}), 500
         if "message" not in response or "content" not in response["message"]:
-            return jsonify({"error": f"Unexpected Ollama response format: {response}"}), 500
+            return jsonify(
+                {"error": f"Unexpected Ollama response format: {response}"}
+            ), 500
 
         recipe_response = response["message"]["content"]
         print("Generated Recipe:\n", recipe_response)
 
-        #print("Generated Recipe:\n", recipe_response)
+        # print("Generated Recipe:\n", recipe_response)
 
         # Generate image prompt and image from recipe text
         image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
@@ -151,15 +286,18 @@ def generate_recipe():
         image.save("generated_dish.jpg")
         image_base64_out = pil_to_base64(image)
 
-        return jsonify({
-            "recipe": recipe_response,
-            "image_prompt": image_prompt,
-            "image_base64": image_base64_out
-        })
+        return jsonify(
+            {
+                "recipe": recipe_response,
+                "image_prompt": image_prompt,
+                "image_base64": image_base64_out,
+            }
+        )
     except Exception as e:
         return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
 
-'''
+
+"""
     if "ingredients_text" not in request.json:
         return jsonify({"error": "No ingredient list provided"}), 400
     try:
@@ -193,9 +331,9 @@ def generate_recipe():
             "image_base64": image_base64
         })
     except Exception as e:
-        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500 '''
+        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500 """
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
 
-''' TODO: Replace the placeholder image block with a call to API for Stable Diffusion, passing image_prompt. '''
+""" TODO: Replace the placeholder image block with a call to API for Stable Diffusion, passing image_prompt. """

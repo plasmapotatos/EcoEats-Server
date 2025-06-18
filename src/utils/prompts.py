@@ -1,5 +1,5 @@
 import csv
-import json
+
 
 def load_carbon_data(csv_file="src/utils/carbonData.csv"):
     """Reads carbon emissions data from a CSV file and returns a list of dictionaries."""
@@ -24,10 +24,11 @@ def load_carbon_data(csv_file="src/utils/carbonData.csv"):
 
     return carbon_data
 
+
 # Load data once at startup
 CARBON_DATA = load_carbon_data()
 
-ANALYZE_FOOD_PROMPT = f"""
+ANALYZE_FOOD_PROMPT = """
 You are an expert in food sustainability. Given an image of a food item, your task is to:
 
 1. **Identify the food item in the image**.
@@ -45,18 +46,18 @@ Don't include the object!! e.g. "item" or "category" etc.
 ***** OUTPUT FORMAT THAT YOU MUST FOLLOW ***** 
 
 ```json
-{{
+{
   "item": "<identified food>",
   "category": "<food category>",
   "carbon emissions": <kg CO2-eq/kg>,
   "alternatives": [
-    {{"item": "<alternative 1>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"}},
-    {{"item": "<alternative 2>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"}},
-    {{"item": "<alternative 3>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"}},
-    {{"item": "<alternative 4>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"}},
-    {{"item": "<alternative 5>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"}}
+    {"item": "<alternative 1>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"},
+    {"item": "<alternative 2>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"},
+    {"item": "<alternative 3>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"},
+    {"item": "<alternative 4>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"},
+    {"item": "<alternative 5>", "carbon emissions": <kg CO2-eq/kg>, "reason": "<why this is better>"}
   ]
-}}
+}
 
 ***** HERE ARE EXAMPLES TO FOLLOW!! *****
 
@@ -65,37 +66,37 @@ THE OUTPUT MUST FOLLOW THE TEMPLATE!! Start with a short few sentences of reason
 ***** EXAMPLE OUTPUT 1 START ***** 
 Pineapples have relatively high carbon emissions due to factors such as long-distance transportation, refrigeration needs, and agricultural resource usage. To reduce environmental impact, alternative fruits with lower emissions can be considered.
 ```json
-{{
+{
 "reasoning": 
   "item": "Pineapple",
   "category": "Fruits",
   "carbon emissions": 0.56,
   "alternatives": [
-    {{"item": "Pear", "carbon emissions": 0.38, "reason": "Lower food processing and transport emissions"}},
-    {{"item": "Banana", "carbon emissions": 0.35, "reason": "Minimal packaging requirements"}},
-    {{"item": "Grapes", "carbon emissions": 0.40, "reason": "Lower agriculture emissions"}},
-    {{"item": "Plum", "carbon emissions": 0.37, "reason": "Reduced transport emissions"}},
-    {{"item": "Peach", "carbon emissions": 0.39, "reason": "Less packaging waste"}}
+    {"item": "Pear", "carbon emissions": 0.38, "reason": "Lower food processing and transport emissions"},
+    {"item": "Banana", "carbon emissions": 0.35, "reason": "Minimal packaging requirements"},
+    {"item": "Grapes", "carbon emissions": 0.40, "reason": "Lower agriculture emissions"},
+    {"item": "Plum", "carbon emissions": 0.37, "reason": "Reduced transport emissions"},
+    {"item": "Peach", "carbon emissions": 0.39, "reason": "Less packaging waste"}
   ]
-}}
+}
 ```
 ***** EXAMPLE OUTPUT 1 END *****
 
 ***** EXAMPLE OUTPUT 2 START *****
 Chicken production has significant carbon emissions due to factors such as feed cultivation, land use, and processing energy. Opting for plant-based alternatives can substantially lower environmental impact by reducing emissions from agriculture, transportation, and resource consumption.
 ```json
-{{
+{
   "item": "Chicken",
   "category": "Meat",
   "carbon emissions": 6.90,
   "alternatives": [
-    {{"item": "Tofu", "carbon emissions": "2.00", "reason": "Dramatically lower agriculture and transport emissions"}},
-    {{"item": "Lentils", "carbon emissions": "0.90", "reason": "Minimal processing and packaging needs"}},
-    {{"item": "Mushrooms", "carbon emissions": "1.50", "reason": "Low agriculture impact"}},
-    {{"item": "Seitan", "carbon emissions": "1.80", "reason": "Uses less land and water"}},
-    {{"item": "Tempeh", "carbon emissions": "1.60", "reason": "Reduced processing emissions"}}
+    {"item": "Tofu", "carbon emissions": "2.00", "reason": "Dramatically lower agriculture and transport emissions"},
+    {"item": "Lentils", "carbon emissions": "0.90", "reason": "Minimal processing and packaging needs"},
+    {"item": "Mushrooms", "carbon emissions": "1.50", "reason": "Low agriculture impact"},
+    {"item": "Seitan", "carbon emissions": "1.80", "reason": "Uses less land and water"},
+    {"item": "Tempeh", "carbon emissions": "1.60", "reason": "Reduced processing emissions"}
   ]
-}}
+}
 ```
 ***** EXAMPLE OUTPUT 2 END *****
 
@@ -115,4 +116,25 @@ Steps:
 
 Make the instructions clear and realistic. Here is the list:
 {ingredients}
+"""
+
+SUGGEST_ALTERNATIVES_PROMPT = """
+You are a helpful assistant recommending food alternatives with lower climate impact.
+
+Given the original food item and a list of candidate alternatives with their CO2 emissions and similarity scores, select the top 5 most relevant alternatives.
+
+For each alternative, provide:
+- The name of the alternative
+- A short justification why it is a good substitute (mention climate impact and relevance)
+- The CO2 emissions value (kg CO2-eq/kg)
+
+Output JSON format:
+[
+  {
+    "Name": "<alternative name>",
+    "Justification": "<short explanation>",
+    "CO2": <number>
+  },
+  ...
+]
 """
