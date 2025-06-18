@@ -64,11 +64,11 @@ if __name__ == "__main__":
     #send_image_to_server(image_path)
 
     # Example ingredients to test generate_recipe endpoint
-    #ingredients = "2 tomatoes, 1 onion, 3 cloves garlic, salt, olive oil"
+    ingredients = "2 tomatoes, 1 onion, 3 cloves garlic, salt, olive oil"
     start_time = time.time()
 
-    #send_ingredients_to_server(ingredients_text=ingredients, image_path=image_path)
-    send_ingredients_to_server(image_path=image_path)
+    send_ingredients_to_server(ingredients_text=ingredients, image_path=image_path)
+    #send_ingredients_to_server(image_path=image_path)
 
     end_time = time.time()
     duration = end_time - start_time
