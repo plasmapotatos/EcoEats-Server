@@ -50,7 +50,7 @@ def call_ollama(model: str, prompt: str, images: list = None):
     headers = {"Content-Type": "application/json"}
 
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=120)
+        response = requests.post(url, json=payload, headers=headers, timeout=300)
         print(response.json())
         response.raise_for_status() 
         return response.json()
