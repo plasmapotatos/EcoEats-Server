@@ -1,3 +1,4 @@
+import os
 import base64
 import re
 import json
@@ -6,6 +7,28 @@ from flask import Flask, request, jsonify
 from PIL import Image
 from src.utils.request_utils import pil_to_base64, call_ollama
 from src.utils.prompts import ANALYZE_FOOD_PROMPT, GENERATE_RECIPE_PROMPT
+from diffusers import StableDiffusionPipeline
+import torch
+
+#small Stable Diffusion model
+pipe = StableDiffusionPipeline.from_pretrained(
+    "OFA-Sys/small-stable-diffusion-v0",
+    torch_dtype=torch.float32  # or torch.float16 if your device supports it
+)
+
+#Load Stable Diffusion model - "on top of"
+#pipe = DiffusionPipeline.from_pretrained(
+#    "black-forest-labs/FLUX.1-dev",
+#    torch_dtype=torch.float32 # FOR TIMOTHY: required for MPS (mac GPU) you might hv to change to make compatible
+#)
+#pipe.load_lora_weights("multimodalart/isometric-skeumorphic-3d-bnb")
+
+
+# FOR TIMOTHY: check that PyTorch install supports MPS (can verify using below)
+print(torch.backends.mps.is_available()) # should be true on Mac Studio
+
+device = "mps" if torch.backends.mps.is_available() else "cpu"
+pipe.to(device)
 
 app = Flask(__name__)
 
@@ -65,30 +88,103 @@ def analyze_image():
 
 @app.route("/generate_recipe", methods=["POST"])
 def generate_recipe():
-    """Endpoint to generate a recipe & image from a natural language ingredient list.
+    """Endpoint to generate a recipe & image from a natural language ingredient list or image of ingredient(s).
 
     Inputs:
-        "ingredients_text": "<natural language ingredient list>"
+        "ingredients_text": "<natural language ingredient list>" (optional)
+        "base64_image": "<base64-encoded image>" (optional)
     Outputs:
         "recipe": "<generated recipe text>",
         "image_prompt": "<used image prompt>",
         "image_base64": "<base64-encoded image string of the dish>"
     """
+    try:
+        ingredients_text = request.json.get("ingredients_text")
+        base64_image = request.json.get("base64_image")
 
+        if not ingredients_text and not base64_image:
+            return jsonify({"error": "No ingredient text or image provided."}), 400
+
+        # Choose model based on input type
+        model_name = "llava:13b" if base64_image else "llama3.2:latest"
+
+        if base64_image and ingredients_text:
+            # Both inputs present — prompt that includes text and image
+            prompt = GENERATE_RECIPE_PROMPT.format(
+                ingredients=(
+                    f"Ingredients text: {ingredients_text}\n"
+                    "Please also check the attached image for ingredients. "
+                    "Create a proper ingredient list by combining both the image and text. "
+                    "(Avoid duplicates as best as possible.)"
+                )
+            )
+            inputs = [base64_image]
+        elif base64_image:
+            # Only image provided — placeholder text prompt + image input
+            prompt = GENERATE_RECIPE_PROMPT.format(
+                ingredients="Please check the attached image for ingredients."
+            )
+            inputs = [base64_image]
+        else:
+            # Only text provided — no image input
+            prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients_text)
+            inputs = []
+        
+        # Call Ollama with prompt + optional image(s)
+        #recipe_response = call_ollama("llama3.2-vision:latest", prompt, inputs)['message']['content']
+        response = call_ollama(model_name, prompt, inputs)
+        print("Ollama raw response:", response)
+        if "error" in response:
+            return jsonify({"error": f"Ollama error: {response['error']}"}), 500
+        if "message" not in response or "content" not in response["message"]:
+            return jsonify({"error": f"Unexpected Ollama response format: {response}"}), 500
+
+        recipe_response = response["message"]["content"]
+        print("Generated Recipe:\n", recipe_response)
+
+        #print("Generated Recipe:\n", recipe_response)
+
+        # Generate image prompt and image from recipe text
+        image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
+        image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
+
+        image.save("generated_dish.jpg")
+        image_base64_out = pil_to_base64(image)
+
+        return jsonify({
+            "recipe": recipe_response,
+            "image_prompt": image_prompt,
+            "image_base64": image_base64_out
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
+
+'''
     if "ingredients_text" not in request.json:
         return jsonify({"error": "No ingredient list provided"}), 400
     try:
         ingredients = request.json["ingredients_text"]
 
+
         #Generate recipe from ingredients
         recipe_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
-        recipe_response = call_ollama("llama3:8b", recipe_prompt, [ingredients])['message']['content']
+        recipe_response = call_ollama("llama3.2-vision:latest", recipe_prompt)['message']['content']
+        
+        #print("Ollama response:", recipe_response)        
+        #recipe_response = check notes app
+        
         print("Generated Recipe:\n", recipe_response)
 
         #Use the generated recipe as the image prompt
         image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
+        print("Image prompt:", image_prompt)
 
-        image = Image.new("RGB", (512, 512), "lightgray") 
+        #image = pipe(image_prompt).images[0]
+
+        #updated image calling
+        image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
+
+        image.save("generated_dish.jpg")
         image_base64 = pil_to_base64(image)
 
         return jsonify({
@@ -97,9 +193,9 @@ def generate_recipe():
             "image_base64": image_base64
         })
     except Exception as e:
-        return jsonify({"error:" f"Failed to generate recipe or image: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500 '''
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
 
 ''' TODO: Replace the placeholder image block with a call to API for Stable Diffusion, passing image_prompt. '''
-
