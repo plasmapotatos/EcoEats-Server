@@ -18,7 +18,7 @@ This project is still in development. Although the first endpoint (suggesting ec
 Run the following command to create and activate a Conda environment:  
 
 ```sh
-conda create --name ecoeats-env python=3.9 -y
+conda create --name ecoeats-env python=3.12 -y
 conda activate ecoeats-env
 ```
 
