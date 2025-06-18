@@ -2,6 +2,7 @@ import base64
 import requests
 from PIL import Image
 from src.utils.request_utils import pil_to_base64
+import time
 
 def send_image_to_server(image_path: str):
     """Sends a base64-encoded image to the Flask server for analysis."""
@@ -23,13 +24,22 @@ def send_image_to_server(image_path: str):
     else:
         print(f"Failed to analyze image. HTTP {response.status_code}:", response.json())
 
-def send_ingredients_to_server(ingredients_text: str):
-    """Sends ingredients text to the Flask server to generate recipe & image."""
+def send_ingredients_to_server(ingredients_text: str = None, image_path: str = None):
+    """Sends ingredients text to the Flask server to generate recipe & image. Raises error if neither image nor text provided """
     url = "http://127.0.0.1:5001/generate_recipe"
 
-    data = {
-        "ingredients_text": ingredients_text
-    }
+    if not ingredients_text and not image_path:
+        raise ValueError("Must provide at least ingredients_text or image_path")
+
+    data = {}
+    if ingredients_text:
+        data["ingredients_text"] = ingredients_text
+    if image_path:
+        image = Image.open(image_path)
+        base64_image = pil_to_base64(image)
+        data["base64_image"] = base64_image
+        print("image read successfully")
+
 
     response = requests.post(url, json=data)
 
@@ -50,9 +60,16 @@ def send_ingredients_to_server(ingredients_text: str):
 
 
 if __name__ == "__main__":
-    #image_path = "apple.jpg"
+    image_path = "ingredients.jpg"
     #send_image_to_server(image_path)
 
     # Example ingredients to test generate_recipe endpoint
-    ingredients = "2 tomatoes, 1 onion, 3 cloves garlic, salt, olive oil"
-    send_ingredients_to_server(ingredients)
+    #ingredients = "2 tomatoes, 1 onion, 3 cloves garlic, salt, olive oil"
+    start_time = time.time()
+
+    #send_ingredients_to_server(ingredients_text=ingredients, image_path=image_path)
+    send_ingredients_to_server(image_path=image_path)
+
+    end_time = time.time()
+    duration = end_time - start_time
+    print(f"\nTotal time taken: {duration:.2f} seconds")
