@@ -92,12 +92,47 @@ def generate_recipe():
 
     Inputs:
         "ingredients_text": "<natural language ingredient list>" (optional)
-        "base64_image": "<base64-encoded image>" (optional)
     Outputs:
         "recipe": "<generated recipe text>",
-        "image_prompt": "<used image prompt>",
         "image_base64": "<base64-encoded image string of the dish>"
     """
+
+    if "ingredients_text" not in request.json:
+        return jsonify({"error": "No ingredient list provided"}), 400
+    try:
+        ingredients = request.json["ingredients_text"]
+
+
+        #Generate recipe from ingredients
+        recipe_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
+        recipe_response = call_ollama("llama3.2-vision:latest", recipe_prompt)['message']['content']
+        
+        #print("Ollama response:", recipe_response)        
+        #recipe_response = check notes app
+        
+        print("Generated Recipe:\n", recipe_response)
+
+        #Use the generated recipe as the image prompt
+        image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
+        print("Image prompt:", image_prompt)
+
+        #image = pipe(image_prompt).images[0]
+
+        #updated image calling
+        image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
+
+        image.save("generated_dish.jpg")
+        image_base64 = pil_to_base64(image)
+
+        return jsonify({
+            "recipe": recipe_response,
+            "image_prompt": image_prompt,
+            "image_base64": image_base64
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500 
+    
+    '''
     try:
         ingredients_text = request.json.get("ingredients_text")
         base64_image = request.json.get("base64_image")
@@ -157,43 +192,7 @@ def generate_recipe():
             "image_base64": image_base64_out
         })
     except Exception as e:
-        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
-
-'''
-    if "ingredients_text" not in request.json:
-        return jsonify({"error": "No ingredient list provided"}), 400
-    try:
-        ingredients = request.json["ingredients_text"]
-
-
-        #Generate recipe from ingredients
-        recipe_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
-        recipe_response = call_ollama("llama3.2-vision:latest", recipe_prompt)['message']['content']
-        
-        #print("Ollama response:", recipe_response)        
-        #recipe_response = check notes app
-        
-        print("Generated Recipe:\n", recipe_response)
-
-        #Use the generated recipe as the image prompt
-        image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
-        print("Image prompt:", image_prompt)
-
-        #image = pipe(image_prompt).images[0]
-
-        #updated image calling
-        image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
-
-        image.save("generated_dish.jpg")
-        image_base64 = pil_to_base64(image)
-
-        return jsonify({
-            "recipe": recipe_response,
-            "image_prompt": image_prompt,
-            "image_base64": image_base64
-        })
-    except Exception as e:
-        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500 '''
+        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500'''
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
