@@ -4,18 +4,19 @@ from PIL import Image
 from src.utils.request_utils import pil_to_base64
 import time
 
+
 def send_image_to_server(image_path: str):
     """Sends a base64-encoded image to the Flask server for analysis."""
-    url = "http://192.168.1.40:5001/analyze_image" 
+    url = "http://192.168.1.40:5001/analyze_image"
 
     image = Image.open(image_path)
-    
+
     base64_image = pil_to_base64(image)
-    
+
     data = {
         "base64_image": base64_image,
     }
-    
+
     response = requests.post(url, json=data)
 
     if response.status_code == 200:
@@ -24,8 +25,9 @@ def send_image_to_server(image_path: str):
     else:
         print(f"Failed to analyze image. HTTP {response.status_code}:", response.json())
 
+
 def send_ingredients_to_server(ingredients_text: str = None, image_path: str = None):
-    """Sends ingredients text to the Flask server to generate recipe & image. Raises error if neither image nor text provided """
+    """Sends ingredients text to the Flask server to generate recipe & image. Raises error if neither image nor text provided"""
     url = "http://127.0.0.1:5001/generate_recipe"
 
     if not ingredients_text and not image_path:
@@ -39,7 +41,6 @@ def send_ingredients_to_server(ingredients_text: str = None, image_path: str = N
         base64_image = pil_to_base64(image)
         data["base64_image"] = base64_image
         print("image read successfully")
-
 
     response = requests.post(url, json=data)
 
@@ -56,9 +57,14 @@ def send_ingredients_to_server(ingredients_text: str = None, image_path: str = N
                 f.write(image_data)
             print("Generated image saved as 'generated_dish_test.jpg'")
     else:
-        print(f"Failed to generate recipe. HTTP {response.status_code}:", response.json())
+        print(
+            f"Failed to generate recipe. HTTP {response.status_code}:", response.json()
+        )
 
-def test_detect_foods_endpoint(image_path: str, url: str = "http://localhost:5001/detect_foods"):
+
+def test_detect_foods_endpoint(
+    image_path: str, url: str = "http://localhost:5001/detect_foods"
+):
     # Open image with PIL
     image = Image.open(image_path)
 
@@ -73,13 +79,14 @@ def test_detect_foods_endpoint(image_path: str, url: str = "http://localhost:500
 
     return response.json()
 
+
 def test_suggest_alternatives(llm_guided=False):
     url = "http://localhost:5001/suggest_alternatives"
-    
+
     # Example input foods
     test_data = {
         "foods": ["doritos", "ground beef", "almond milk"],
-        "llm_guided": llm_guided
+        "llm_guided": llm_guided,
     }
 
     response = requests.post(url, json=test_data)
@@ -93,16 +100,17 @@ def test_suggest_alternatives(llm_guided=False):
         print("Raw response:")
         print(response.text)
 
+
 if __name__ == "__main__":
-    image_path = "ingredients.jpg"
-    #send_image_to_server(image_path)
+    # image_path = "ingredients.jpg"
+    # send_image_to_server(image_path)
 
     # Example ingredients to test generate_recipe endpoint
     ingredients = "2 tomatoes, 1 onion, 3 cloves garlic, salt, olive oil"
     start_time = time.time()
 
-    #print(test_detect_foods_endpoint(image_path=image_path))
-    #send_ingredients_to_server(image_path=image_path)
+    # print(test_detect_foods_endpoint(image_path=image_path))
+    # send_ingredients_to_server(image_path=image_path)
     test_suggest_alternatives(llm_guided=True)
 
     end_time = time.time()

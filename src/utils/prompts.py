@@ -133,6 +133,7 @@ Output:
 ------
 Only output the JSON object — no extra commentary or explanation.
 """
+
 GENERATE_RECIPE_PROMPT = """
 You are a world-class chef. Given the following ingredient list, generate a delicious and creative recipe in the following format:
 
@@ -148,9 +149,53 @@ Steps:
 
 Make the instructions clear and realistic. Here is the list:
 {ingredients}
+
+BELOW ARE SOME EXAMPLE BASE YOUR FORMAT AND ONLY FORMAT ON THESE (DO NOT COPY!!!)
+
+----- EXAMPLE 1 ------
+Dish Name: Miso Soup
+
+Ingredients: 
+1. dashi
+2. stock
+3. hot water
+4. miso
+5. firm tofu
+6. green onion
+
+Steps:
+1. Transfer dashi to a small soup pot over medium-low heat.
+2. Meanwhile, stir together hot water and miso until mist is dissolved.
+3. Pour watery miso mixture into the pot.
+4. Add cubed tofu.
+5. Bring the pot to a simmer.
+6. To serve, sprinkle sliced green onions and a pinch of katsuobushi on top.
+
+------ END OF EXAMPLE 1 ------
+
+------ EXAMPLE 2 ------
+Dish Name: Broccolini Sushi Wrap
+
+Ingredients:
+1. cooked white rice
+2. salt
+3. shrimp
+4. Broccolini
+5. Mayonaise
+6. Nori
+
+Steps:
+1. Roll the rice into a ball about the size of a large mini tomato.
+2. Wet your hands and lightly coat in salt.
+3. Divide the nori into 6 long strips, and make 6 long and narrow sushi wraps.
+4. Remove the hard stems from the broccolini, cut to 3-4 cm lengths, parboil in salt water (not listed), then drain.
+5. Roll the rice in the nori seaweed, top with the shrimp, broccolini, mayonnaise, and they are done.
+
+------END OF EXAMPLE 2-----
 """
 
-SUGGEST_ALTERNATIVES_PROMPT = """
+SUGGEST_ALTERNATIVES_PROMPT = """ 
+
 You are a helpful assistant recommending food alternatives with lower climate impact.
 
 Given the original food item and a list of candidate alternatives with their CO2 emissions and similarity scores, select the top 5 most relevant alternatives.
