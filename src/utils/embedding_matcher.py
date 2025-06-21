@@ -66,7 +66,7 @@ def find_top_n_lower_emission_matches(
     carbon_data: list[Dict],
     model: SentenceTransformer,
     n: int = 5,
-) -> List[Tuple[str, str, float, float]]:
+) -> List[Dict]:
     phrase_emb = embed_phrase(phrase, model)
     all_scores = []
     carbon_lookup = {
@@ -107,7 +107,4 @@ def find_top_n_lower_emission_matches(
 
     lower_emission_items.sort(key=lambda x: x["Cosine Similarity"], reverse=True)
 
-    return [
-        (item["ID_Ra"], item["Name"], item["Cosine Similarity"], item["CO2"])
-        for item in lower_emission_items[:n]
-    ]
+    return lower_emission_items[:n]

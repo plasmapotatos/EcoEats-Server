@@ -7,6 +7,7 @@ from PIL import Image
 from src.utils.request_utils import pil_to_base64, call_ollama
 from src.utils.prompts import (
     ANALYZE_FOOD_PROMPT,
+    DETECT_FOODS_PROMPT,
     GENERATE_RECIPE_PROMPT,
     SUGGEST_ALTERNATIVES_PROMPT,
 )
@@ -80,6 +81,7 @@ def detect_foods():
     """
 
     if "base64_image" not in request.json:
+        print("No base64_image in request")
         return jsonify({"error": "No image file provided"}), 400
 
     try:
@@ -94,7 +96,7 @@ def detect_foods():
         # Call the vision-language model (e.g., LLaVA via Ollama)
         while True:
             try:
-                response = call_ollama("llava:13b", ANALYZE_FOOD_PROMPT, [base64_image])
+                response = call_ollama("llava:13b", DETECT_FOODS_PROMPT, [base64_image])
                 raw_output = response["message"]["content"]
                 print("LLM Output:", raw_output)
 
@@ -106,10 +108,12 @@ def detect_foods():
                 print("Retrying...")
 
     except Exception as e:
+        print(f"Error processing image: {str(e)}")
         return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
 
 
 def llm_generate_alternatives(original_food: str, candidates: list[dict]) -> list[dict]:
+    print(candidates)
     candidates_str = "\n".join(
         f"- {c['Name']} (CO2: {c['CO2']:.2f} kg CO2-eq/kg, Similarity: {c['Cosine Similarity']:.4f})"
         for c in candidates
@@ -118,18 +122,21 @@ def llm_generate_alternatives(original_food: str, candidates: list[dict]) -> lis
         f"Original food: '{original_food}'\n"
         f"Candidate alternatives:\n{candidates_str}\n\n" + SUGGEST_ALTERNATIVES_PROMPT
     )
-    response = call_ollama("llava:13b", prompt, [])
-    content = response["message"]["content"]
+    while True:
+        try:
+            response = call_ollama("llava:13b", prompt, [])
+            content = response["message"]["content"]
 
-    # Clean code fences if present
-    if "```" in content:
-        content = content.split("```")[1].strip()
+            # Remove code fences if present
+            if "```" in content:
+                content = content.split("```")[1].strip()
 
-    try:
-        return json.loads(content)
-    except Exception as e:
-        print(f"Failed to parse LLM output: {e}")
-        return []
+            parsed = json.loads(content)
+            return parsed
+        except Exception as e:
+            print(f"[Retrying] Failed to parse LLM output for '{original_food}': {e}")
+            print("Response content:", content)
+            continue
 
 
 @app.route("/suggest_alternatives", methods=["POST"])
@@ -149,7 +156,7 @@ def suggest_alternatives():
 
     for food in foods:
         candidates = find_top_n_lower_emission_matches(
-            food, embedding_data, carbon_data, model, n=5, top_k=10
+            food, embedding_data, carbon_data, model, n=10
         )
 
         if llm_guided:
@@ -191,6 +198,7 @@ def analyze_image():
     """
 
     if "base64_image" not in request.json:
+        print("No base64_image in request")
         return jsonify({"error": "No image file provided"}), 400
 
     try:
@@ -216,6 +224,7 @@ def analyze_image():
         return parsed_response
 
     except Exception as e:
+        print(f"Error processing image: {str(e)}")
         return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
 
 

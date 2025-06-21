@@ -1,7 +1,7 @@
 import csv
 
 
-def load_carbon_data(csv_file="src/utils/carbonData.csv"):
+def load_carbon_data(csv_file="data/carbonData.csv"):
     """Reads carbon emissions data from a CSV file and returns a list of dictionaries."""
     carbon_data = []
 
@@ -100,6 +100,38 @@ Chicken production has significant carbon emissions due to factors such as feed 
 ```
 ***** EXAMPLE OUTPUT 2 END *****
 
+"""
+DETECT_FOODS_PROMPT = """
+You are an AI that analyzes images and detects foods present.
+
+Input: An image showing various foods.
+
+Output: A JSON object with a single key "foods", containing a list of food names detected in the image. Keep the food names simple (a single word or short phrase) and in lowercase, without any additional text or formatting.
+
+Example outputs:
+
+##### EXAMPLE 1 #####
+Input: Image of a plate with an apple, bread slice, and cheese.
+Output:
+{
+  "foods": ["apple", "bread", "cheese"]
+}
+------
+##### EXAMPLE 2 #####
+Input: Image of a bowl of mixed fruit with bananas and grapes.
+Output:
+{
+  "foods": ["banana", "grape"]
+}
+------
+##### EXAMPLE 3 #####
+Input: Image of a sandwich with lettuce and tomato.
+Output:
+{
+  "foods": ["lettuce", "tomato", "bread"]
+}
+------
+Only output the JSON object — no extra commentary or explanation.
 """
 GENERATE_RECIPE_PROMPT = """
 You are a world-class chef. Given the following ingredient list, generate a delicious and creative recipe in the following format:

@@ -58,6 +58,40 @@ def send_ingredients_to_server(ingredients_text: str = None, image_path: str = N
     else:
         print(f"Failed to generate recipe. HTTP {response.status_code}:", response.json())
 
+def test_detect_foods_endpoint(image_path: str, url: str = "http://localhost:5001/detect_foods"):
+    # Open image with PIL
+    image = Image.open(image_path)
+
+    # Convert PIL image to base64 string
+    base64_image = pil_to_base64(image)
+
+    # Prepare JSON payload
+    payload = {"base64_image": base64_image}
+
+    # Send POST request
+    response = requests.post(url, json=payload)
+
+    return response.json()
+
+def test_suggest_alternatives(llm_guided=False):
+    url = "http://localhost:5001/suggest_alternatives"
+    
+    # Example input foods
+    test_data = {
+        "foods": ["doritos", "ground beef", "almond milk"],
+        "llm_guided": llm_guided
+    }
+
+    response = requests.post(url, json=test_data)
+
+    print(f"Status Code: {response.status_code}")
+    try:
+        print("Response:")
+        print(response.json())
+    except Exception as e:
+        print("Failed to parse JSON:", e)
+        print("Raw response:")
+        print(response.text)
 
 if __name__ == "__main__":
     image_path = "ingredients.jpg"
@@ -67,8 +101,9 @@ if __name__ == "__main__":
     ingredients = "2 tomatoes, 1 onion, 3 cloves garlic, salt, olive oil"
     start_time = time.time()
 
-    send_ingredients_to_server(ingredients_text=ingredients, image_path=image_path)
+    #print(test_detect_foods_endpoint(image_path=image_path))
     #send_ingredients_to_server(image_path=image_path)
+    test_suggest_alternatives(llm_guided=True)
 
     end_time = time.time()
     duration = end_time - start_time
