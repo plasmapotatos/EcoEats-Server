@@ -102,11 +102,11 @@ Chicken production has significant carbon emissions due to factors such as feed 
 
 """
 DETECT_FOODS_PROMPT = """
-You are an AI that analyzes images and detects foods present.
+You are an expert food analyzer that analyzes images and detects foods present.
 
 Input: An image showing various foods.
 
-Output: A JSON object with a single key "foods", containing a list of food names detected in the image. Keep the food names simple (a single word or short phrase) and in lowercase, without any additional text or formatting.
+Output: A JSON object with a single key "foods", containing a list of food names detected in the image. Keep the food names simple (a single word or short phrase) with the first letter capitalized, without any additional text or formatting.
 
 Example outputs:
 
@@ -114,21 +114,21 @@ Example outputs:
 Input: Image of a plate with an apple, bread slice, and cheese.
 Output:
 {
-  "foods": ["apple", "bread", "cheese"]
+  "foods": ["Apple", "Bread", "Cheese"]
 }
 ------
 ##### EXAMPLE 2 #####
 Input: Image of a bowl of mixed fruit with bananas and grapes.
 Output:
 {
-  "foods": ["banana", "grape"]
+  "foods": ["Banana", "Grape"]
 }
 ------
 ##### EXAMPLE 3 #####
 Input: Image of a sandwich with lettuce and tomato.
 Output:
 {
-  "foods": ["lettuce", "tomato", "bread"]
+  "foods": ["Lettuce", "Tomato", "Bread"]
 }
 ------
 Only output the JSON object — no extra commentary or explanation.
@@ -204,14 +204,54 @@ For each alternative, provide:
 - The name of the alternative
 - A short justification why it is a good substitute (mention climate impact and relevance)
 - The CO2 emissions value (kg CO2-eq/kg)
+- Category of the food item. Choose between "Vegetables", "Fruits", "Grains", "Proteins", "Dairy", "Seafood", "Sweets", "Beverages", "Snacks", and "Other".
+Output the results in the following JSON format: DO NOT include any reasoning, just the JSON output.
 
-Output JSON format:
+```json
 [
   {
     "Name": "<alternative name>",
     "Justification": "<short explanation>",
-    "CO2": <number>
+    "CO2": <number>,
+    "Category": "<category>"
   },
   ...
 ]
+```
+
+----- EXAMPLE 1 ------
+```json
+[
+  {
+    "Name": "Lentil Patty",
+    "Justification": "High in protein and produces significantly less CO2 than beef.",
+    "CO2": 0.9,
+    "Category": "Proteins"
+  },
+  {
+    "Name": "Black Bean Burger",
+    "Justification": "Rich in fiber and protein with a low carbon footprint.",
+    "CO2": 1.1,
+    "Category": "Proteins"
+  },
+  {
+    "Name": "Tofu",
+    "Justification": "Plant-based protein with very low emissions compared to beef.",
+    "CO2": 1.2,
+    "Category": "Proteins"
+  },
+  {
+    "Name": "Mushroom Burger",
+    "Justification": "Umami-rich and environmentally friendly meat substitute.",
+    "CO2": 0.8,
+    "Category": "Vegetables"
+  },
+  {
+    "Name": "Chickpea Patty",
+    "Justification": "Protein-packed and sustainable legume-based option.",
+    "CO2": 1.0,
+    "Category": "Proteins"
+  }
+]
+```
 """

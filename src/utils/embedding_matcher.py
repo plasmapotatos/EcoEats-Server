@@ -91,19 +91,12 @@ def find_top_n_lower_emission_matches(
         )
 
     all_scores.sort(key=lambda x: x["Cosine Similarity"], reverse=True)
-    print(all_scores[:10])  # Debugging line to check the top 10 scores
     top_item = all_scores[0]
     co2_threshold = top_item["CO2"]
 
     lower_emission_items = [
         item for item in all_scores if item["CO2"] <= co2_threshold
     ]  # includes top item cuz usually it's not the same
-
-    print(f"Top item CO2: {co2_threshold:.2f} kg CO2-eq/kg")
-    for item in lower_emission_items:
-        print(
-            f"Item ID: {item['ID_Ra']}, Name: {item['Name']}, CO2: {item['CO2']:.2f} kg CO2-eq/kg, Cosine Similarity: {item['Cosine Similarity']:.4f}"
-        )
 
     lower_emission_items.sort(key=lambda x: x["Cosine Similarity"], reverse=True)
 

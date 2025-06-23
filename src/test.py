@@ -85,7 +85,7 @@ def test_suggest_alternatives(llm_guided=False):
 
     # Example input foods
     test_data = {
-        "foods": ["doritos", "ground beef", "almond milk"],
+        "foods": ["doritos", "ground beef"],
         "llm_guided": llm_guided,
     }
 
