@@ -10,6 +10,7 @@ from src.utils.prompts import (
     DETECT_FOODS_PROMPT,
     GENERATE_RECIPE_PROMPT,
     SUGGEST_ALTERNATIVES_PROMPT,
+    TOUCHUP_RECIPE_PROMPT
 )
 from diffusers import StableDiffusionPipeline
 import torch
@@ -45,6 +46,7 @@ pipe.to(device)
 
 app = Flask(__name__)
 
+latest_recipe = None
 
 def parse_llm_output(llm_string):
     """Function to parse LLM output
@@ -157,7 +159,7 @@ def suggest_alternatives():
     response = {}
 
     for food in foods:
-        candidates = find_top_n_lower_emission_matches(
+        candidates = find_top_n_lower_emission   _matches(
             food, embedding_data, carbon_data, model, n=10
         )
 
@@ -232,24 +234,29 @@ def analyze_image():
         print(f"Error processing image: {str(e)}")
         return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
 
+def extract_json_from_response(text):
+    print("Raw response text:", text)
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group())
+    except json.JSONDecodeError:
+        return None
 
 @app.route("/generate_recipe", methods=["POST"])
 def generate_recipe():
-    """Endpoint to generate a recipe & image from a natural language ingredient list or image of ingredient(s).
-
-    Inputs:
-        "ingredients_text": "<natural language ingredient list>" (optional)
-    Outputs:
-        "recipe": "<generated recipe text>",
-        "image_base64": "<base64-encoded image string of the dish>"
-    """
+    """Endpoint to generate a recipe & image from a natural language ingredient list or image of ingredient(s)."""
 
     if "ingredients_text" not in request.json:
         return jsonify({"error": "No ingredient list provided"}), 400
+
     try:
         ingredients = request.json["ingredients_text"]
+        print("ingredients: ", ingredients)
 
         # Generate recipe from ingredients
+        # Build prompt
         recipe_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
         recipe_response = call_ollama("llama3.2-vision:latest", recipe_prompt)[
             "message"
@@ -259,18 +266,46 @@ def generate_recipe():
         # recipe_response = check notes app
 
         print("Generated Recipe:\n", recipe_response)
+        #print("recipe_prompt: ", recipe_prompt) - debugging
+
+        # Call model
+        response = call_ollama("llama3.2:latest", recipe_prompt)
+        print("OLLAMA HAS BEEN CALLED!!")
+        if "message" not in response or "content" not in response["message"]:
+            return jsonify({"error": "Invalid model response"}), 500
+
+        raw_response = response["message"]["content"]
+        print("Raw model response:\n", raw_response)
+
+        recipe_json = extract_json_from_response(raw_response)
+        if recipe_json is None:
+            return jsonify({"error": "Failed to parse recipe JSON", "raw_response": raw_response}), 500
 
         # Use the generated recipe as the image prompt
         image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
+        title = recipe_json.get("title", "Generated Dish")
+        ingredients_list = recipe_json.get("ingredients", [])
+        steps_list = recipe_json.get("steps", [])
+
+        # Generate image prompt from recipe
+        image_prompt = f"A realistic photo of the final dish prepared from this recipe titled '{title}' with the following steps: {' '.join(steps_list)}"
         print("Image prompt:", image_prompt)
 
         # image = pipe(image_prompt).images[0]
 
         # updated image calling
         image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
-
         image.save("generated_dish.jpg")
         image_base64 = pil_to_base64(image)
+
+        global latest_recipe
+        latest_recipe = {
+            "title": title,
+            "ingredients": ingredients_list,
+            "steps": steps_list
+        }
+
+        print("latest_recipe: ", latest_recipe)
 
         return jsonify(
             {
@@ -279,6 +314,13 @@ def generate_recipe():
                 "image_base64": image_base64,
             }
         )
+        return jsonify({
+            "title": title,
+            "ingredients": ingredients_list,
+            "steps": steps_list,
+            "image_base64": image_base64
+        })
+
     except Exception as e:
         return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
 
@@ -337,6 +379,46 @@ def generate_recipe():
 
         image.save("generated_dish.jpg")
         image_base64_out = pil_to_base64(image)
+        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
+    
+
+@app.route("/touchup_recipe", methods=["POST"])
+def touchup_recipe():
+    global latest_recipe
+
+    if latest_recipe is None:
+        return jsonify({"error": "No prior recipe found. Generate a recipe first."}), 400
+
+    preferences = request.json.get("preferences", "")
+    print(preferences)
+    if not preferences:
+        return jsonify({"error": "No preferences provided"}), 400
+
+    original_recipe_str = json.dumps(latest_recipe, indent=2)
+    prompt = TOUCHUP_RECIPE_PROMPT.format(
+        original_recipe=original_recipe_str,
+        preferences=preferences
+    )
+
+    response = call_ollama("llama3.2:latest", prompt)
+    raw_response = response["message"]["content"]
+
+    # Parse and update the latest_recipe
+    updated_recipe = extract_json_from_response(raw_response)
+    if updated_recipe is None:
+        return jsonify({"error": "Failed to parse updated recipe", "raw_response": raw_response}), 500
+
+    # Update global
+    latest_recipe = updated_recipe
+
+    title = updated_recipe.get("title", "Updated Dish")
+    ingredients_list = updated_recipe.get("ingredients", [])
+    steps_list = updated_recipe.get("steps", [])
+
+    image_prompt = f"A realistic photo of the final dish prepared from this recipe titled '{title}' with the following steps: {' '.join(steps_list)}"
+    image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
+    image.save("generated_dish.jpg")
+    image_base64 = pil_to_base64(image)
 
         return jsonify(
             {
@@ -348,6 +430,12 @@ def generate_recipe():
     except Exception as e:
         return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500"""
 
+    return jsonify({
+        "title": title,
+        "ingredients": ingredients_list,
+        "steps": steps_list,
+        "image_base64": image_base64
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
