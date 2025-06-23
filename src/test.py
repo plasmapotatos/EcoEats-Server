@@ -36,6 +36,7 @@ def send_ingredients_to_server(ingredients_text: str = None, image_path: str = N
     data = {}
     if ingredients_text:
         data["ingredients_text"] = ingredients_text
+        print("ingredients_text read!!")
     if image_path:
         image = Image.open(image_path)
         base64_image = pil_to_base64(image)
@@ -46,8 +47,10 @@ def send_ingredients_to_server(ingredients_text: str = None, image_path: str = N
 
     if response.status_code == 200:
         response_json = response.json()
-        print("Generated recipe:", response_json.get("recipe"))
-        print("Image prompt:", response_json.get("image_prompt"))
+        print("Generated recipe:", response_json.get("title"))
+        print("Ingredients: ", response_json.get("ingredients"))
+        print("Steps: ", response_json.get("steps"))
+        #print("Image prompt:", response_json.get("image_prompt"))
 
         # Decode the base64 image and save it locally for verification
         image_base64 = response_json.get("image_base64")
@@ -100,6 +103,33 @@ def test_suggest_alternatives(llm_guided=False):
         print("Raw response:")
         print(response.text)
 
+def send_recipe_with_preferences_to_server(preferences: str):
+    """Sends only preferences to the Flask server to regenerate the most recent recipe based on them."""
+    url = "http://127.0.0.1:5001/touchup_recipe"
+
+    data = {
+        "preferences": preferences
+    }
+
+    response = requests.post(url, json=data)
+
+    if response.status_code == 200:
+        response_json = response.json()
+        print("\n--- Touched-Up Recipe ---")
+        print("Title:", response_json.get("title"))
+        print("Ingredients:", response_json.get("ingredients"))
+        print("Steps:", response_json.get("steps"))
+
+        image_base64 = response_json.get("image_base64")
+        if image_base64:
+            image_data = base64.b64decode(image_base64)
+            with open("touched_up_recipe.jpg", "wb") as f:
+                f.write(image_data)
+            print("Modified image saved as 'touched_up_recipe.jpg'")
+    else:
+        print(f"Failed to touch up recipe. HTTP {response.status_code}:", response.json())
+
+
 
 if __name__ == "__main__":
     # image_path = "ingredients.jpg"
@@ -110,9 +140,16 @@ if __name__ == "__main__":
     start_time = time.time()
 
     # print(test_detect_foods_endpoint(image_path=image_path))
-    # send_ingredients_to_server(image_path=image_path)
-    test_suggest_alternatives(llm_guided=True)
+    send_ingredients_to_server(ingredients_text=ingredients)
+    #test_suggest_alternatives(llm_guided=True)
+    end_time = time.time()
+    duration = end_time - start_time
+    print(f"\nTotal time taken: {duration:.2f} seconds")
 
+    #send preferences after a recipe is generated
+    preferences = "Please avoid using a stove or oven. I only have a microwave."
+    start_time = time.time()
+    send_recipe_with_preferences_to_server(preferences)
     end_time = time.time()
     duration = end_time - start_time
     print(f"\nTotal time taken: {duration:.2f} seconds")

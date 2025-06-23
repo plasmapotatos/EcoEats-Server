@@ -135,63 +135,79 @@ Only output the JSON object — no extra commentary or explanation.
 """
 
 GENERATE_RECIPE_PROMPT = """
-You are a world-class chef. Given the following ingredient list, generate a delicious and creative recipe in the following format:
 
-Title: <Recipe Title>
-
-Ingredients:
-- List of ingredients
-
-Steps:
-1. Step one
-2. Step two
-...
-
-Make the instructions clear and realistic. Here is the list:
+INGREDIENTS:
 {ingredients}
 
-BELOW ARE SOME EXAMPLE BASE YOUR FORMAT AND ONLY FORMAT ON THESE (DO NOT COPY!!!)
+You are a world-class chef and expert recipe creator. Given an ingredient list, your task is to:
 
------ EXAMPLE 1 ------
-Dish Name: Miso Soup
+1. **Create a creative and realistic dish title.**
+2. **List the final ingredients that will be used in the recipe.**
+3. **Write clear, step-by-step cooking instructions.**
 
-Ingredients: 
-1. dashi
-2. stock
-3. hot water
-4. miso
-5. firm tofu
-6. green onion
+Your output MUST be valid JSON and follow the format exactly.
 
-Steps:
-1. Transfer dashi to a small soup pot over medium-low heat.
-2. Meanwhile, stir together hot water and miso until mist is dissolved.
-3. Pour watery miso mixture into the pot.
-4. Add cubed tofu.
-5. Bring the pot to a simmer.
-6. To serve, sprinkle sliced green onions and a pinch of katsuobushi on top.
+---
 
------- END OF EXAMPLE 1 ------
+***** REQUIRED OUTPUT FORMAT (DO NOT DEVIATE!!) *****
 
------- EXAMPLE 2 ------
-Dish Name: Broccolini Sushi Wrap
+```json
+[
+  {{
+    "title": "<Recipe Title>",
+    "ingredients": ["<ingredient 1>", "<ingredient 2>", "..."],
+    "steps": ["<step 1>", "<step 2>", "..."]
+  }}
+]
 
-Ingredients:
-1. cooked white rice
-2. salt
-3. shrimp
-4. Broccolini
-5. Mayonaise
-6. Nori
+DO NOT include markdown formatting like backticks (```) in your response. ONLY return the JSON block — no explanations or reasoning.
 
-Steps:
-1. Roll the rice into a ball about the size of a large mini tomato.
-2. Wet your hands and lightly coat in salt.
-3. Divide the nori into 6 long strips, and make 6 long and narrow sushi wraps.
-4. Remove the hard stems from the broccolini, cut to 3-4 cm lengths, parboil in salt water (not listed), then drain.
-5. Roll the rice in the nori seaweed, top with the shrimp, broccolini, mayonnaise, and they are done.
+***** HERE ARE EXAMPLES TO FOLLOW!! *****
 
-------END OF EXAMPLE 2-----
+***** EXAMPLE 1 START *****
+[
+  {{
+    "title": "Miso Soup",
+    "ingredients": [
+      "dashi",
+      "hot water",
+      "miso paste",
+      "firm tofu",
+      "green onion"
+    ],
+    "steps": [
+      "Heat dashi in a small pot over medium-low heat.",
+      "Dissolve miso paste in hot water, then add to the pot.",
+      "Add cubed tofu to the soup and simmer gently.",
+      "Serve hot, garnished with sliced green onions."
+    ]
+  }}
+]
+
+***** EXAMPLE 1 END *****
+
+***** EXAMPLE 2 START *****
+[
+  {{
+    "title": "Broccolini Sushi Wrap",
+    "ingredients": [
+      "cooked white rice",
+      "salt",
+      "shrimp",
+      "broccolini",
+      "mayonnaise",
+      "nori"
+    ],
+    "steps": [
+      "Roll the rice into a ball the size of a large cherry tomato.",
+      "Wet your hands and lightly coat them with salt.",
+      "Cut nori into long strips for wrapping.",
+      "Blanch broccolini in salted water, drain and dry.",
+      "Wrap rice in nori, top with shrimp, broccolini, and a dab of mayo."
+    ]
+  }}
+]
+***** EXAMPLE 2 END *****
 """
 
 SUGGEST_ALTERNATIVES_PROMPT = """ 
@@ -214,4 +230,30 @@ Output JSON format:
   },
   ...
 ]
+"""
+TOUCHUP_RECIPE_PROMPT = """
+You are a world-class chef and expert in adapting recipes based on personal cooking preferences and constraints.
+
+Below is an original recipe that was previously generated:
+
+{original_recipe}
+
+Below are user preferences and constraints. Please make sure the updated recipe follows these instructions carefully:
+{preferences}
+
+---
+
+Your task is to regenerate the recipe to fully accommodate the user's preferences. You may change the title, ingredients, and steps — but only as much as necessary to respect the constraints.
+
+The updated recipe must still be creative, delicious, and realistic.
+
+Do NOT include markdown formatting (like triple backticks).
+Do NOT include any explanation or commentary.
+ONLY return the updated recipe as a valid JSON object using the format below:
+
+{{
+  "title": "<Updated Recipe Title>",
+  "ingredients": ["ingredient 1", "ingredient 2", ...],
+  "steps": ["step 1", "step 2", ...]
+}}
 """
