@@ -92,10 +92,9 @@ def detect_foods():
         image_data = base64.b64decode(base64_image)
         image = Image.open(BytesIO(image_data))
 
-        # (Optional) Save for debugging
         image.save("debug_image.jpg")
 
-        # Call the vision-language model (e.g., LLaVA via Ollama)
+        # Calling llava model (Timothy can change to better one ie check doc)
         while True:
             try:
                 response = call_ollama("llava:13b", DETECT_FOODS_PROMPT, [base64_image])
@@ -256,8 +255,9 @@ def generate_recipe():
     print("\n previous recipe: ", previous_recipe)
 
     try:
+        # if it is second time being pressed then touch up mode activated (todo: connect to frontend)
         if previous_recipe and preferences:
-            # --- Touched-up Recipe Flow ---
+            #touch up mode
             print("Touch-up mode activated")
             original_recipe_str = json.dumps(previous_recipe, indent=2)
             prompt = TOUCHUP_RECIPE_PROMPT.format(
@@ -265,13 +265,13 @@ def generate_recipe():
                 preferences=preferences
             )
         elif ingredients:
-            # --- New Recipe Generation Flow ---
+            #no old recipe - new generation mode
             print("Fresh generation mode")
             prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
         else:
             return jsonify({"error": "Must provide either ingredients_text or previous_recipe with preferences"}), 400
 
-        # --- Call model ---
+        # call ollama - TIMOTHY
         response = call_ollama("llama3.2:latest", prompt)
         raw_response = response["message"]["content"]
         print("Model Response:\n", raw_response)
@@ -280,13 +280,11 @@ def generate_recipe():
         if recipe_json is None:
             return jsonify({"error": "Failed to parse recipe JSON", "raw_response": raw_response}), 500
 
-        # Use the generated recipe as the image prompt
-        image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
         title = recipe_json.get("title", "Generated Dish")
         ingredients_list = recipe_json.get("ingredients", [])
         steps_list = recipe_json.get("steps", [])
 
-        # --- Generate image ---
+        # use the generated recipe as the image prompt using the stable diffusion model initalized above - cuts off at 77 tokens bc of CLIP
         image_prompt = f"A realistic photo of the final dish prepared from this recipe titled '{title}' with the following steps: {' '.join(steps_list)}"
         image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
         image.save("generated_dish.jpg")
