@@ -242,26 +242,34 @@ def extract_json_from_response(text):
 @app.route("/generate_recipe", methods=["POST"])
 def generate_recipe():
     """Endpoint to generate a recipe & image from a natural language ingredient list or image of ingredient(s)."""
-
-    if "ingredients_text" not in request.json:
-        return jsonify({"error": "No ingredient list provided"}), 400
+    data = request.json
+    ingredients = data.get("ingredients_text")
+    print("ingredients: ", ingredients)
+    preferences = data.get("preferences")
+    print("\n preferences: ", preferences)
+    previous_recipe = data.get("previous_recipe")
+    print("\n previous recipe: ", previous_recipe)
 
     try:
-        ingredients = request.json["ingredients_text"]
-        print("ingredients: ", ingredients)
+        if previous_recipe and preferences:
+            # --- Touched-up Recipe Flow ---
+            print("Touch-up mode activated")
+            original_recipe_str = json.dumps(previous_recipe, indent=2)
+            prompt = TOUCHUP_RECIPE_PROMPT.format(
+                original_recipe=original_recipe_str,
+                preferences=preferences
+            )
+        elif ingredients:
+            # --- New Recipe Generation Flow ---
+            print("Fresh generation mode")
+            prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
+        else:
+            return jsonify({"error": "Must provide either ingredients_text or previous_recipe with preferences"}), 400
 
-        # Build prompt
-        recipe_prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
-        #print("recipe_prompt: ", recipe_prompt) - debugging
-
-        # Call model
-        response = call_ollama("llama3.2:latest", recipe_prompt)
-        print("OLLAMA HAS BEEN CALLED!!")
-        if "message" not in response or "content" not in response["message"]:
-            return jsonify({"error": "Invalid model response"}), 500
-
+        # --- Call model ---
+        response = call_ollama("llama3.2:latest", prompt)
         raw_response = response["message"]["content"]
-        print("Raw model response:\n", raw_response)
+        print("Model Response:\n", raw_response)
 
         recipe_json = extract_json_from_response(raw_response)
         if recipe_json is None:
@@ -271,22 +279,11 @@ def generate_recipe():
         ingredients_list = recipe_json.get("ingredients", [])
         steps_list = recipe_json.get("steps", [])
 
-        # Generate image prompt from recipe
+        # --- Generate image ---
         image_prompt = f"A realistic photo of the final dish prepared from this recipe titled '{title}' with the following steps: {' '.join(steps_list)}"
-        print("Image prompt:", image_prompt)
-
         image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
         image.save("generated_dish.jpg")
         image_base64 = pil_to_base64(image)
-
-        global latest_recipe
-        latest_recipe = {
-            "title": title,
-            "ingredients": ingredients_list,
-            "steps": steps_list
-        }
-
-        print("latest_recipe: ", latest_recipe)
 
         return jsonify({
             "title": title,
@@ -297,54 +294,3 @@ def generate_recipe():
 
     except Exception as e:
         return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
-    
-
-@app.route("/touchup_recipe", methods=["POST"])
-def touchup_recipe():
-    global latest_recipe
-
-    if latest_recipe is None:
-        return jsonify({"error": "No prior recipe found. Generate a recipe first."}), 400
-
-    preferences = request.json.get("preferences", "")
-    print(preferences)
-    if not preferences:
-        return jsonify({"error": "No preferences provided"}), 400
-
-    original_recipe_str = json.dumps(latest_recipe, indent=2)
-    prompt = TOUCHUP_RECIPE_PROMPT.format(
-        original_recipe=original_recipe_str,
-        preferences=preferences
-    )
-
-    response = call_ollama("llama3.2:latest", prompt)
-    raw_response = response["message"]["content"]
-
-    # Parse and update the latest_recipe
-    updated_recipe = extract_json_from_response(raw_response)
-    if updated_recipe is None:
-        return jsonify({"error": "Failed to parse updated recipe", "raw_response": raw_response}), 500
-
-    # Update global
-    latest_recipe = updated_recipe
-
-    title = updated_recipe.get("title", "Updated Dish")
-    ingredients_list = updated_recipe.get("ingredients", [])
-    steps_list = updated_recipe.get("steps", [])
-
-    image_prompt = f"A realistic photo of the final dish prepared from this recipe titled '{title}' with the following steps: {' '.join(steps_list)}"
-    image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
-    image.save("generated_dish.jpg")
-    image_base64 = pil_to_base64(image)
-
-    return jsonify({
-        "title": title,
-        "ingredients": ingredients_list,
-        "steps": steps_list,
-        "image_base64": image_base64
-    })
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
-
-""" TODO: Replace the placeholder image block with a call to API for Stable Diffusion, passing image_prompt. """

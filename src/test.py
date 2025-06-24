@@ -59,10 +59,17 @@ def send_ingredients_to_server(ingredients_text: str = None, image_path: str = N
             with open("generated_dish_test.jpg", "wb") as f:
                 f.write(image_data)
             print("Generated image saved as 'generated_dish_test.jpg'")
+    
+        return {
+                "title": response_json.get("title"),
+                "ingredients": response_json.get("ingredients"),
+                "steps": response_json.get("steps")
+            }
     else:
         print(
             f"Failed to generate recipe. HTTP {response.status_code}:", response.json()
         )
+        return None
 
 
 def test_detect_foods_endpoint(
@@ -103,12 +110,13 @@ def test_suggest_alternatives(llm_guided=False):
         print("Raw response:")
         print(response.text)
 
-def send_recipe_with_preferences_to_server(preferences: str):
+def send_recipe_with_preferences_to_server(preferences: str, previous_recipe: dict):
     """Sends only preferences to the Flask server to regenerate the most recent recipe based on them."""
-    url = "http://127.0.0.1:5001/touchup_recipe"
+    url = "http://127.0.0.1:5001/generate_recipe"
 
     data = {
-        "preferences": preferences
+        "preferences": preferences, 
+        "previous_recipe": previous_recipe
     }
 
     response = requests.post(url, json=data)
@@ -140,16 +148,18 @@ if __name__ == "__main__":
     start_time = time.time()
 
     # print(test_detect_foods_endpoint(image_path=image_path))
-    send_ingredients_to_server(ingredients_text=ingredients)
+    generated_recipe = send_ingredients_to_server(ingredients_text=ingredients)
     #test_suggest_alternatives(llm_guided=True)
     end_time = time.time()
     duration = end_time - start_time
     print(f"\nTotal time taken: {duration:.2f} seconds")
 
-    #send preferences after a recipe is generated
-    preferences = "Please avoid using a stove or oven. I only have a microwave."
-    start_time = time.time()
-    send_recipe_with_preferences_to_server(preferences)
-    end_time = time.time()
-    duration = end_time - start_time
-    print(f"\nTotal time taken: {duration:.2f} seconds")
+    if generated_recipe:
+        preferences = "Please avoid using a stove or oven. I only have a microwave."
+        start_time = time.time()
+        send_recipe_with_preferences_to_server(preferences=preferences, previous_recipe=generated_recipe)
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"\nTotal time taken: {duration:.2f} seconds")
+
+    
