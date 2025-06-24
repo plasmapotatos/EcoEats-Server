@@ -104,7 +104,7 @@ def detect_foods():
 
                 # Parse model output (expects a JSON-like list)
                 parsed = parse_llm_output(raw_output)
-                return jsonify({"foods": parsed}), 200
+                return jsonify(parsed), 200
             except Exception as e:
                 print(f"Failed to parse LLM output: {e}")
                 print("Retrying...")
@@ -129,9 +129,11 @@ def llm_generate_alternatives(original_food: str, candidates: list[dict]) -> lis
             response = call_ollama("llava:13b", prompt, [])
             content = response["message"]["content"]
 
-            # Remove code fences if present
-            if "```" in content:
-                content = content.split("```")[1].strip()
+            # sometimes llm will use code fences w json, other times not
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
 
             parsed = json.loads(content)
             return parsed
@@ -154,7 +156,7 @@ def suggest_alternatives():
         reader = csv.DictReader(f)
         carbon_data = list(reader)
 
-    response = []
+    response = {}
 
     for food in foods:
         candidates = find_top_n_lower_emission_matches(
@@ -169,24 +171,27 @@ def suggest_alternatives():
                     {
                         "Name": alt.get("Name"),
                         "Justification": alt.get("Justification"),
-                        "CO2-eq/kg": alt.get("CO2"),
+                        "CO2": alt.get("CO2"),
+                        "Category": alt.get("Category", "Other"),
                     }
                 )
-            response.append({"original": food, "matches": formatted})
-
+            response[food] = formatted
         else:
             top5 = candidates[:5]
             formatted = [
                 {
                     "Name": c["Name"],
                     "Similarity": round(c["Cosine Similarity"], 4),
-                    "CO2-eq/kg": round(c["CO2"], 4),
+                    "CO2": round(c["CO2"], 4),
+                    "Category": c.get("Category", "Other"),
                 }
                 for c in top5
             ]
-            response.append({"original": food, "matches": formatted})
+            response[food] = formatted
 
-    return jsonify({"alternatives": response}), 200
+    print("Response:", response)
+
+    return jsonify(response), 200
 
 
 @app.route("/analyze_image", methods=["POST"])
@@ -275,6 +280,8 @@ def generate_recipe():
         if recipe_json is None:
             return jsonify({"error": "Failed to parse recipe JSON", "raw_response": raw_response}), 500
 
+        # Use the generated recipe as the image prompt
+        image_prompt = f"A realistic photo of the final dish prepared from the following recipe:\n{recipe_response}"
         title = recipe_json.get("title", "Generated Dish")
         ingredients_list = recipe_json.get("ingredients", [])
         steps_list = recipe_json.get("steps", [])
@@ -294,3 +301,6 @@ def generate_recipe():
 
     except Exception as e:
         return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5001, debug=True)
