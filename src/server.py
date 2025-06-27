@@ -2,6 +2,7 @@ import base64
 import re
 import json
 from io import BytesIO
+import traceback
 from flask import Flask, request, jsonify
 from PIL import Image
 from src.utils.request_utils import pil_to_base64, call_ollama
@@ -10,7 +11,7 @@ from src.utils.prompts import (
     DETECT_FOODS_PROMPT,
     GENERATE_RECIPE_PROMPT,
     SUGGEST_ALTERNATIVES_PROMPT,
-    TOUCHUP_RECIPE_PROMPT
+    TOUCHUP_RECIPE_PROMPT,
 )
 from diffusers import StableDiffusionPipeline
 import torch
@@ -26,6 +27,7 @@ pipe = StableDiffusionPipeline.from_pretrained(
     "OFA-Sys/small-stable-diffusion-v0",
     torch_dtype=torch.float32,  # or torch.float16 if your device supports it
 )
+# pipe = DiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-3.5-medium")
 
 
 model = load_model()
@@ -47,6 +49,7 @@ pipe.to(device)
 app = Flask(__name__)
 
 latest_recipe = None
+
 
 def parse_llm_output(llm_string):
     """Function to parse LLM output
@@ -94,7 +97,7 @@ def detect_foods():
 
         image.save("debug_image.jpg")
 
-        # Calling llava model (Timothy can change to better one ie check doc)
+        # Calling  model (TODO: decide on model type)
         while True:
             try:
                 response = call_ollama("llava:13b", DETECT_FOODS_PROMPT, [base64_image])
@@ -144,6 +147,7 @@ def llm_generate_alternatives(original_food: str, candidates: list[dict]) -> lis
 
 @app.route("/suggest_alternatives", methods=["POST"])
 def suggest_alternatives():
+    print("Received request to suggest alternatives")
     data = request.get_json()
     if not data or "foods" not in data:
         return jsonify({"error": "Missing 'foods' field"}), 400
@@ -233,6 +237,7 @@ def analyze_image():
         print(f"Error processing image: {str(e)}")
         return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
 
+
 def extract_json_from_response(text):
     print("Raw response text:", text)
     match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -242,6 +247,7 @@ def extract_json_from_response(text):
         return json.loads(match.group())
     except json.JSONDecodeError:
         return None
+
 
 @app.route("/generate_recipe", methods=["POST"])
 def generate_recipe():
@@ -257,19 +263,24 @@ def generate_recipe():
     try:
         # if it is second time being pressed then touch up mode activated (todo: connect to frontend)
         if previous_recipe and preferences:
-            #touch up mode
+            # touch up mode
             print("Touch-up mode activated")
             original_recipe_str = json.dumps(previous_recipe, indent=2)
             prompt = TOUCHUP_RECIPE_PROMPT.format(
                 original_recipe=original_recipe_str,
-                preferences=preferences
+                preferences=preferences,
+                ingredients=ingredients,
             )
         elif ingredients:
-            #no old recipe - new generation mode
+            # no old recipe - new generation mode
             print("Fresh generation mode")
             prompt = GENERATE_RECIPE_PROMPT.format(ingredients=ingredients)
         else:
-            return jsonify({"error": "Must provide either ingredients_text or previous_recipe with preferences"}), 400
+            return jsonify(
+                {
+                    "error": "Must provide either ingredients_text or previous_recipe with preferences"
+                }
+            ), 400
 
         # call ollama - TIMOTHY
         response = call_ollama("llama3.2:latest", prompt)
@@ -278,7 +289,9 @@ def generate_recipe():
 
         recipe_json = extract_json_from_response(raw_response)
         if recipe_json is None:
-            return jsonify({"error": "Failed to parse recipe JSON", "raw_response": raw_response}), 500
+            return jsonify(
+                {"error": "Failed to parse recipe JSON", "raw_response": raw_response}
+            ), 500
 
         title = recipe_json.get("title", "Generated Dish")
         ingredients_list = recipe_json.get("ingredients", [])
@@ -286,19 +299,24 @@ def generate_recipe():
 
         # use the generated recipe as the image prompt using the stable diffusion model initalized above - cuts off at 77 tokens bc of CLIP
         image_prompt = f"A realistic photo of the final dish prepared from this recipe titled '{title}' with the following steps: {' '.join(steps_list)}"
-        image = pipe(image_prompt, num_inference_steps=10, guidance_scale=7.5).images[0]
+        print("image prompt: ", image_prompt)
+        image = pipe(image_prompt, num_inference_steps=10).images[0]
         image.save("generated_dish.jpg")
         image_base64 = pil_to_base64(image)
 
-        return jsonify({
-            "title": title,
-            "ingredients": ingredients_list,
-            "steps": steps_list,
-            "image_base64": image_base64
-        })
+        return jsonify(
+            {
+                "title": title,
+                "ingredients": ingredients_list,
+                "steps": steps_list,
+                "image_base64": image_base64,
+            }
+        )
 
     except Exception as e:
-        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 500
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to generate recipe or image: {str(e)}"}), 400
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)

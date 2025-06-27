@@ -281,6 +281,9 @@ Below is an original recipe that was previously generated:
 Below are user preferences and constraints. Please make sure the updated recipe follows these instructions carefully:
 {preferences}
 
+Below are ingredients that must be used in the updated recipe:
+{ingredients}
+
 ---
 
 Your task is to regenerate the recipe to fully accommodate the user's preferences. You may change the title, ingredients, and steps — but only as much as necessary to respect the constraints.
