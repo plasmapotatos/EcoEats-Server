@@ -21,6 +21,7 @@ def pil_to_base64(image: Image.Image) -> str:
     image.save(buffer, format="PNG") 
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
+# called in server.py, sets up ollama function. MUST HAVE OLLAMA RUNNING in a separate terminal as stated above!!
 def call_ollama(model: str, prompt: str, images: list = None):
     """Calls the locally hosted Ollama chat model with a prompt and optional images.
 

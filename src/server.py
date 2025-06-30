@@ -23,7 +23,7 @@ from src.utils.embedding_matcher import (
     find_top_n_lower_emission_matches,
 )
 
-# small Stable Diffusion model
+# small Stable Diffusion model - check doc for alternate options
 pipe = StableDiffusionPipeline.from_pretrained(
     "OFA-Sys/small-stable-diffusion-v0",
     torch_dtype=torch.float32,  # or torch.float16 if your device supports it
@@ -33,7 +33,8 @@ pipe = StableDiffusionPipeline.from_pretrained(
 
 model = load_model()
 embedding_data = load_embeddings("data/embeddings_output.json")
-# Load Stable Diffusion model - "on top of"
+
+#alternate stable diffusion model - may not be compatible with all devices
 # pipe = DiffusionPipeline.from_pretrained(
 #    "black-forest-labs/FLUX.1-dev",
 #    torch_dtype=torch.float32 # FOR TIMOTHY: required for MPS (mac GPU) you might hv to change to make compatible
@@ -49,11 +50,8 @@ pipe.to(device)
 
 app = Flask(__name__)
 
-latest_recipe = None
-
-
 def parse_llm_output(llm_string):
-    """Function to parse LLM output
+    """Helper function to parse llm(in our case ollama) output
     Inputs:
         llm_string (str): This string should be from the LLM
 
@@ -74,6 +72,7 @@ def parse_llm_output(llm_string):
 def detect_foods():
     """
     Endpoint to analyze a base64-encoded image and detect foods.
+    Separated into own endpoint from other two endpoints for cleaner feel.
 
     Inputs (JSON):
         {
@@ -92,6 +91,7 @@ def detect_foods():
     json_data = request.json
     print("Accessed request.json in", time.time() - start, "seconds")
 
+    # check for image
     if "base64_image" not in request.json:
         print("No base64_image in request")
         return jsonify({"error": "No image file provided"}), 400
@@ -107,7 +107,7 @@ def detect_foods():
         image.save("debug_image.jpg")
         print("image saved")
 
-        # Calling  model (TODO: decide on model type)
+        # Calling  model (TODO: decide on model type) - optional route: BLIP (image captioning)
         while True:
             try:
                 print("calling ollama")
@@ -207,7 +207,7 @@ def suggest_alternatives():
 
     return jsonify(response), 200
 
-
+# Below is the old route to generate alternatives (irrelevant currently)
 @app.route("/analyze_image", methods=["POST"])
 def analyze_image():
     """Endpoint to analyze a base64-encoded image.
@@ -250,6 +250,7 @@ def analyze_image():
 
 
 def extract_json_from_response(text):
+    # Helper function to convert llm response to json so it is easier for frontend to retrieve
     print("Raw response text:", text)
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if not match:
@@ -262,7 +263,9 @@ def extract_json_from_response(text):
 
 @app.route("/generate_recipe", methods=["POST"])
 def generate_recipe():
-    """Endpoint to generate a recipe & image from a natural language ingredient list or image of ingredient(s)."""
+    """Endpoint to generate a recipe & image from a textual ingredient list. Recipe can be "touched-up" with user preferences such as 
+    no oven or vegan."""
+
     data = request.json
     ingredients = data.get("ingredients_text")
     print("ingredients: ", ingredients)
@@ -272,7 +275,7 @@ def generate_recipe():
     print("\n previous recipe: ", previous_recipe)
 
     try:
-        # if it is second time being pressed then touch up mode activated (todo: connect to frontend)
+        # if it is second time being pressed then touch up mode activated
         if previous_recipe and preferences:
             # touch up mode
             print("Touch-up mode activated")

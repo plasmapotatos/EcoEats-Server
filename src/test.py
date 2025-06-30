@@ -4,6 +4,7 @@ from PIL import Image
 from src.utils.request_utils import pil_to_base64
 import time
 
+#for developer testing only (hard coded to test both endpoints, irrevelant for actual app)
 
 def send_image_to_server(image_path: str):
     """Sends a base64-encoded image to the Flask server for analysis."""
