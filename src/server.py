@@ -2,6 +2,7 @@ import base64
 import re
 import json
 from io import BytesIO
+import time
 import traceback
 from flask import Flask, request, jsonify
 from PIL import Image
@@ -85,21 +86,31 @@ def detect_foods():
         }
     """
 
+    print("Received request to detect foods")
+
+    start = time.time()
+    json_data = request.json
+    print("Accessed request.json in", time.time() - start, "seconds")
+
     if "base64_image" not in request.json:
         print("No base64_image in request")
         return jsonify({"error": "No image file provided"}), 400
 
     try:
         # Decode the base64 image
+        print("encoding image")
         base64_image = request.json["base64_image"]
         image_data = base64.b64decode(base64_image)
         image = Image.open(BytesIO(image_data))
 
+        print("image encoded")
         image.save("debug_image.jpg")
+        print("image saved")
 
         # Calling  model (TODO: decide on model type)
         while True:
             try:
+                print("calling ollama")
                 response = call_ollama("llava:13b", DETECT_FOODS_PROMPT, [base64_image])
                 raw_output = response["message"]["content"]
                 print("LLM Output:", raw_output)
@@ -319,4 +330,4 @@ def generate_recipe():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=50001, debug=True)
